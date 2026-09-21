@@ -9,11 +9,11 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test --test-concurrency=1 \"test/**/*.test.ts\"",
+    "test": "node --import tsx --test --test-concurrency=1 test/unit/*.test.ts test/integration/*.test.ts",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
-    "test:unit": "node --import tsx --test \"test/unit/*.test.ts\"",
-    "test:integration": "node --import tsx --test --test-concurrency=1 \"test/integration/*.test.ts\""
+    "test:unit": "node --import tsx --test test/unit/*.test.ts",
+    "test:integration": "node --import tsx --test --test-concurrency=1 test/integration/*.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.665.0",
