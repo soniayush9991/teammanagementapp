@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A new push supersedes an in-flight run on the same ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Test-only values. Real secrets never live in the repository; the API
+  # validates these at boot, so they must be present and long enough.
+  JWT_ACCESS_SECRET: ci-access-secret-0123456789abcdef
+  JWT_REFRESH_SECRET: ci-refresh-secret-0123456789abcdef
+  NODE_ENV: test
+
+jobs:
+  verify:
+    name: Verify (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # The lower bound is what package.json declares in `engines`; the
+        # upper is what development runs on. Both must pass or the declared
+        # support is a fiction.
+        node: ['20.19', '22']
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: teamspace
+          POSTGRES_PASSWORD: teamspace
+          POSTGRES_DB: teamspace_ci
+        ports:
+          - 5432:5432
+        # Without the health check, the first migration can race the server's
+        # startup and fail on connection refused. The database is named
+        # explicitly because pg_isready otherwise defaults it to the username,
+        # which logs a FATAL line on every probe and buries real errors.
+        options: >-
+          --health-cmd "pg_isready -U teamspace -d teamspace_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck every workspace
+        run: npm run typecheck
+
+      - name: Build (shared → api → web)
+        run: npm run build
+
+      # Proves the schema applies to an empty database from scratch, which
+      # the test suite's seed would otherwise mask.
+      - name: Apply migrations to an empty database
+        env:
+          DATABASE_URL: postgres://teamspace:teamspace@localhost:5432/teamspace_ci
+        run: npm run db:migrate
+
+      - name: Migrations are idempotent
+        env:
+          DATABASE_URL: postgres://teamspace:teamspace@localhost:5432/teamspace_ci
+        run: |
+          output=$(npm run db:migrate --silent)
+          echo "$output"
+          # The runner is checksummed and forward-only: a second run must be a
+          # no-op. Anything else means a migration was edited after release.
+          if ! echo "$output" | grep -q "Applied 0 migration(s)"; then
+            echo "::error::Re-running migrations was not a no-op — an applied migration may have been edited."
+            exit 1
+          fi
+
+      - name: Create the test database
+        run: |
+          PGPASSWORD=teamspace createdb -h localhost -U teamspace teamspace_test
+
+      - name: Run tests
+        env:
+          # Set so the integration suites actually run; without it they skip.
+          TEST_DATABASE_URL: postgres://teamspace:teamspace@localhost:5432/teamspace_test
+        run: npm test
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Fails on moderate and above. The tree is currently clean, so this
+      # catches the day that stops being true rather than reporting it.
+      - name: npm audit
+        run: npm audit --audit-level=moderate
