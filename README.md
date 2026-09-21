@@ -16,7 +16,7 @@ for 365 days.
 | Area | State |
 |---|---|
 | PostgreSQL schema, 9 migrations | Applied and exercised against a live PostgreSQL 16 |
-| REST API, 14 modules, ~90 endpoints | Implemented, typechecked, integration tested |
+| REST API, 14 modules, 98 endpoints | Implemented, typechecked, integration tested |
 | WebSocket gateway | Subscriptions, typing, presence, heartbeat, backoff |
 | React client, 11 screens | Built and driven in a real browser |
 | Background jobs | Retention (partition drops) and deadline reminders |
