@@ -1,0 +1,158 @@
+/* ---------------------------------------------------------------------------
+   Design tokens.
+
+   Every colour, space and radius in the app resolves to one of these. Dark
+   mode redefines the same names, so components never branch on theme.
+   --------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+
+  /* Neutrals */
+  --surface-page: #f6f7f9;
+  --surface-card: #ffffff;
+  --surface-sunken: #eef0f4;
+  --surface-hover: #f0f2f6;
+  --surface-inverse: #1c2333;
+
+  --border-subtle: #e2e5ec;
+  --border-strong: #c8cdd8;
+
+  --text-primary: #161d2b;
+  --text-secondary: #5a6478;
+  --text-muted: #8a93a6;
+  --text-inverse: #ffffff;
+
+  /* Brand */
+  --accent: #3d5afe;
+  --accent-hover: #3049d8;
+  --accent-subtle: #eaeeff;
+  --accent-text: #2136b8;
+
+  /* Utilization bands. Each pairs with an icon or label so colour is never
+     the only signal (WCAG 1.4.1). */
+  --band-healthy: #1f9d61;
+  --band-healthy-bg: #e6f6ee;
+  --band-near: #b8760a;
+  --band-near-bg: #fdf2e0;
+  --band-over: #d13438;
+  --band-over-bg: #fdeceb;
+  --band-under: #4a7fd6;
+  --band-under-bg: #eaf2fd;
+
+  /* Priorities */
+  --priority-urgent: #d13438;
+  --priority-high: #d97706;
+  --priority-medium: #5a6478;
+  --priority-low: #8a93a6;
+
+  /* Spacing — a 4px scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.1);
+  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.14);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.625rem;
+
+  --sidebar-width: 236px;
+  --topbar-height: 56px;
+  --transition: 140ms ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --surface-page: #0f1420;
+    --surface-card: #171d2b;
+    --surface-sunken: #121826;
+    --surface-hover: #1f2738;
+    --surface-inverse: #e7eaf2;
+
+    --border-subtle: #262f42;
+    --border-strong: #38435c;
+
+    --text-primary: #e7eaf2;
+    --text-secondary: #a3adc2;
+    --text-muted: #79839a;
+    --text-inverse: #0f1420;
+
+    --accent: #7c8dff;
+    --accent-hover: #93a1ff;
+    --accent-subtle: #1e2540;
+    --accent-text: #b3bdff;
+
+    --band-healthy: #3ec98a;
+    --band-healthy-bg: #10301f;
+    --band-near: #e0a33c;
+    --band-near-bg: #33270d;
+    --band-over: #ff6b6f;
+    --band-over-bg: #3a1618;
+    --band-under: #7fb0ff;
+    --band-under-bg: #12243d;
+
+    --priority-urgent: #ff6b6f;
+    --priority-high: #e0a33c;
+    --priority-medium: #a3adc2;
+    --priority-low: #79839a;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --surface-page: #0f1420;
+  --surface-card: #171d2b;
+  --surface-sunken: #121826;
+  --surface-hover: #1f2738;
+  --surface-inverse: #e7eaf2;
+  --border-subtle: #262f42;
+  --border-strong: #38435c;
+  --text-primary: #e7eaf2;
+  --text-secondary: #a3adc2;
+  --text-muted: #79839a;
+  --text-inverse: #0f1420;
+  --accent: #7c8dff;
+  --accent-hover: #93a1ff;
+  --accent-subtle: #1e2540;
+  --accent-text: #b3bdff;
+  --band-healthy: #3ec98a;
+  --band-healthy-bg: #10301f;
+  --band-near: #e0a33c;
+  --band-near-bg: #33270d;
+  --band-over: #ff6b6f;
+  --band-over-bg: #3a1618;
+  --band-under: #7fb0ff;
+  --band-under-bg: #12243d;
+  --priority-urgent: #ff6b6f;
+  --priority-high: #e0a33c;
+  --priority-medium: #a3adc2;
+  --priority-low: #79839a;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+}

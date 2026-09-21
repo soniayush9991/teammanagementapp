@@ -1,0 +1,24 @@
+{
+  "name": "teamspace",
+  "private": true,
+  "version": "0.1.0",
+  "description": "TeamSpace - team management, capacity planning and collaboration platform",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm run build -w @teamspace/shared && npm run build -w @teamspace/api && npm run build -w @teamspace/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "dev": "npm run dev -w @teamspace/api & npm run dev -w @teamspace/web",
+    "db:migrate": "npm run db:migrate -w @teamspace/api",
+    "db:seed": "npm run db:seed -w @teamspace/api"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
