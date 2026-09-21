@@ -41,9 +41,11 @@ jobs:
         ports:
           - 5432:5432
         # Without the health check, the first migration can race the server's
-        # startup and fail on connection refused.
+        # startup and fail on connection refused. The database is named
+        # explicitly because pg_isready otherwise defaults it to the username,
+        # which logs a FATAL line on every probe and buries real errors.
         options: >-
-          --health-cmd "pg_isready -U teamspace"
+          --health-cmd "pg_isready -U teamspace -d teamspace_ci"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
