@@ -8,7 +8,7 @@
     "apps/*"
   ],
   "engines": {
-    "node": ">=20"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
     "build": "npm run build -w @teamspace/shared && npm run build -w @teamspace/api && npm run build -w @teamspace/web",

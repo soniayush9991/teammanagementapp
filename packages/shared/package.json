@@ -13,10 +13,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test --experimental-strip-types test/*.test.ts"
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "devDependencies": {
     "@types/node": "^22.7.5",
+    "tsx": "^4.19.1",
     "typescript": "^5.6.3"
   },
   "type": "module"

@@ -1,5 +1,7 @@
 # TeamSpace
 
+[![CI](https://github.com/soniayush9991/teammanagementapp/actions/workflows/ci.yml/badge.svg)](https://github.com/soniayush9991/teammanagementapp/actions/workflows/ci.yml)
+
 A team management platform that keeps **work, capacity and conversation in one
 data model** — so a manager can see that a task is due Friday, that the person
 holding it is at 125% after their approved leave, and that the last three
@@ -20,12 +22,12 @@ for 365 days.
 | WebSocket gateway | Subscriptions, typing, presence, heartbeat, backoff |
 | React client, 11 screens | Built and driven in a real browser |
 | Background jobs | Retention (partition drops) and deadline reminders |
-| Tests | **104 passing** — 15 shared unit, 20 API unit, 69 integration against a real database |
+| Tests | **104 passing** — 15 shared unit, 20 API unit, 69 integration against a real database; run in CI on Node 20.19 and 22 |
 | Documentation | [17 documents](docs/README.md), one per requested deliverable |
 
 ## Quick start
 
-**Requirements:** Node 20+, PostgreSQL 16+. An S3-compatible bucket and SMTP
+**Requirements:** Node 20.19+ or 22.12+, PostgreSQL 16+. An S3-compatible bucket and SMTP
 are optional — uploads and email degrade gracefully without them.
 
 ```bash
