@@ -97,6 +97,37 @@ jobs:
           TEST_DATABASE_URL: postgres://teamspace:teamspace@localhost:5432/teamspace_test
         run: npm test
 
+      # Every other step runs from src via tsx, so a build that emits something
+      # unstartable passes unnoticed — which is exactly what happened: tsc does
+      # not copy the .sql migrations, and `node dist/index.js` died on boot.
+      - name: Built output boots and reports ready
+        env:
+          DATABASE_URL: postgres://teamspace:teamspace@localhost:5432/teamspace_boot
+          NODE_ENV: production
+          PORT: '4010'
+        run: |
+          PGPASSWORD=teamspace createdb -h localhost -U teamspace teamspace_boot
+          node apps/api/dist/index.js &
+          api_pid=$!
+          ready=0
+          for _ in $(seq 1 30); do
+            if curl -sf http://localhost:4010/readyz > /dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          shell_type=$(curl -s -o /dev/null -w '%{content_type}' http://localhost:4010/board || true)
+          kill "$api_pid" 2>/dev/null || true
+          if [ "$ready" != "1" ]; then
+            echo "::error::the built API never became ready on /readyz"
+            exit 1
+          fi
+          # The SPA and the API share an origin, so a client-side route must
+          # return the HTML shell rather than a JSON 404.
+          case "$shell_type" in
+            text/html*) ;;
+            *) echo "::error::/board served '$shell_type', expected text/html"; exit 1 ;;
+          esac
+          echo "built output booted, migrated, served the SPA and reported ready"
+
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest
@@ -116,3 +147,83 @@ jobs:
       # catches the day that stops being true rather than reporting it.
       - name: npm audit
         run: npm audit --audit-level=moderate
+
+  docker:
+    name: Docker image builds and serves
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: teamspace
+          POSTGRES_PASSWORD: teamspace
+          POSTGRES_DB: teamspace_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U teamspace -d teamspace_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build -t teamspace:ci .
+
+      - name: Confirm no build tooling shipped in the runtime image
+        run: |
+          # typescript/tsx/vite in the runtime layer would mean the prune broke.
+          for pkg in typescript tsx vite; do
+            if docker run --rm --entrypoint sh teamspace:ci -c "test -d node_modules/$pkg"; then
+              echo "::error::$pkg is present in the runtime image"
+              exit 1
+            fi
+          done
+          echo "runtime image carries production dependencies only"
+
+      - name: Run the image and exercise it
+        run: |
+          PGPASSWORD=teamspace createdb -h localhost -U teamspace teamspace_docker
+          docker run -d --name teamspace --network host \
+            -e NODE_ENV=production \
+            -e PORT=4030 \
+            -e DATABASE_URL=postgres://teamspace:teamspace@localhost:5432/teamspace_docker \
+            -e JWT_ACCESS_SECRET=ci-access-secret-0123456789abcdef \
+            -e JWT_REFRESH_SECRET=ci-refresh-secret-0123456789abcdef \
+            -e SEED_DEMO_ON_BOOT=true \
+            teamspace:ci
+
+          ready=0
+          for _ in $(seq 1 60); do
+            if curl -sf http://localhost:4030/readyz > /dev/null; then ready=1; break; fi
+            sleep 2
+          done
+          if [ "$ready" != "1" ]; then
+            echo "::error::the container never became ready"
+            docker logs teamspace
+            exit 1
+          fi
+
+          # The SPA shell, on the same origin as the API.
+          content_type=$(curl -s -o /dev/null -w '%{content_type}' http://localhost:4030/)
+          case "$content_type" in
+            text/html*) ;;
+            *) echo "::error::/ served '$content_type', expected text/html"; docker logs teamspace; exit 1 ;;
+          esac
+
+          # Logging in proves the boot-time seed populated the empty database.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            http://localhost:4030/api/v1/auth/login \
+            -H 'content-type: application/json' \
+            -d '{"email":"maya@teamspace.dev","password":"TeamSpace!2026"}')
+          if [ "$code" != "200" ]; then
+            echo "::error::demo login returned $code, expected 200 (seed-on-boot may have failed)"
+            docker logs teamspace
+            exit 1
+          fi
+
+          echo "image built, served the SPA, migrated and seeded, and signed a user in"
+          docker rm -f teamspace > /dev/null

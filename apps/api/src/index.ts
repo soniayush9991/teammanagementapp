@@ -1,3 +1,6 @@
+// Must precede every other import: configuration is read during module
+// evaluation further down the graph.
+import './loadDotenv.js';
 import { createServer } from 'node:http';
 import { createApp } from './app.js';
 import { closePool, query } from './db/pool.js';
@@ -16,6 +19,20 @@ async function main(): Promise<void> {
     if (applied.length > 0) logger.info({ applied }, 'applied pending migrations on boot');
   }
   await query('SELECT 1');
+
+  // Demo deployments want data on first boot. Guarded on an empty users table,
+  // so a restart never wipes what people did to a running demo — the seed
+  // itself is destructive by design and must not run against live data.
+  if (env().SEED_DEMO_ON_BOOT) {
+    const { rows } = await query<{ count: string }>('SELECT count(*)::text AS count FROM users');
+    if (Number(rows[0]?.count ?? 0) === 0) {
+      const { seed } = await import('./db/seed.js');
+      await seed();
+      logger.info('seeded the demo organization into an empty database');
+    } else {
+      logger.info('SEED_DEMO_ON_BOOT is set, but the database already has users; leaving it untouched');
+    }
+  }
 
   const app = createApp();
   const server = createServer(app);

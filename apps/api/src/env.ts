@@ -17,6 +17,18 @@ const schema = z.object({
   ACCESS_TOKEN_TTL: z.coerce.number().int().positive().default(900),
   REFRESH_TOKEN_TTL: z.coerce.number().int().positive().default(60 * 60 * 24 * 30),
 
+  // Single-origin deployment: when the built web bundle is present the API
+  // serves it, so the SPA and the API share one origin (which the
+  // SameSite=Strict refresh cookie requires). Leave unset to use the default
+  // location next to the API.
+  WEB_DIST_PATH: z.string().optional(),
+  // Seeds the demo organization on boot, but only into an empty database —
+  // it never overwrites existing data. Intended for demo deployments.
+  SEED_DEMO_ON_BOOT: z
+    .string()
+    .default('false')
+    .transform((value) => value === 'true'),
+
   MESSAGE_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(365),
   RETENTION_JOB_CRON_MINUTES: z.coerce.number().int().positive().default(1440),
   REMINDER_JOB_CRON_MINUTES: z.coerce.number().int().positive().default(60),

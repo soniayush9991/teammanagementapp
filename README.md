@@ -22,6 +22,7 @@ for 365 days.
 | WebSocket gateway | Subscriptions, typing, presence, heartbeat, backoff |
 | React client, 11 screens | Built and driven in a real browser |
 | Background jobs | Retention (partition drops) and deadline reminders |
+| Deployment | Dockerfile, Compose and a Render blueprint; one origin, one container |
 | Tests | **104 passing** — 15 shared unit, 20 API unit, 69 integration against a real database; run in CI on Node 20.19 and 22 |
 | Documentation | [17 documents](docs/README.md), one per requested deliverable |
 
@@ -34,7 +35,7 @@ are optional — uploads and email degrade gracefully without them.
 git clone <this repository> && cd teammanagementapp
 npm install
 
-cp .env.example .env            # set DATABASE_URL and the two JWT secrets
+cp .env.example .env            # then set DATABASE_URL and the two JWT secrets
 createdb teamspace
 
 npm run db:migrate              # apply the schema
@@ -56,6 +57,33 @@ Password for all three: `TeamSpace!2026`
 The seed is deliberately uneven: one person is over capacity, one has two days
 of approved leave, and one task is overdue — so the dashboards show something
 real on first load.
+
+## Deploying it
+
+The SPA and the API **must share one origin** — the client resolves the API at
+`/api/v1`, derives its WebSocket URL from `window.location.host`, and the
+refresh cookie is `SameSite=Strict`. So the API serves the built bundle itself,
+and one container is the whole deployment.
+
+Locally, with production parity:
+
+```bash
+docker compose up --build       # → http://localhost:3000
+```
+
+To a host with a public URL — `render.yaml` is a blueprint, so push the repo
+and choose **New → Blueprint** in Render. It builds the Dockerfile, provisions
+Postgres 16, generates both JWT secrets and wires `DATABASE_URL`. Fly.io and
+plain Docker are covered in [docs/18-deployment.md](docs/18-deployment.md).
+
+Set `SEED_DEMO_ON_BOOT=true` to populate the demo organization on first boot;
+it only ever writes into an empty database, so restarts never overwrite data.
+`NODE_ENV=production` is not optional — the refresh cookie's `secure` flag
+depends on it.
+
+> A public URL seeded with demo data is world-readable: the password is in this
+> README. For anything real, deploy without `SEED_DEMO_ON_BOOT`, create your
+> own admin, and change it.
 
 ## Commands
 
@@ -83,7 +111,7 @@ teammanagementapp/
 ├── packages/shared/    domain types, the permission matrix, capacity maths
 ├── apps/api/           Express + PostgreSQL + ws
 ├── apps/web/           React + TypeScript + Vite
-└── docs/               the 17 design documents
+└── docs/               the 18 design documents
 ```
 
 `packages/shared` is the reason a report can never disagree with the screen it
@@ -119,6 +147,11 @@ traps and restores focus. → `apps/web/src/components/ui.tsx`
 
 Everything is validated by zod at boot — a missing JWT secret is a startup
 failure, not a 500 at 3am. See [`.env.example`](.env.example) for the full set.
+
+A `.env` file in the repository root (or in `apps/api/`) is loaded
+automatically. Variables already set in the environment always win over the
+file, so a container, a CI job or an inline `DATABASE_URL=… npm run …` keeps
+its value. `.env` is gitignored — keep real secrets out of commits.
 
 | Variable | Purpose |
 |---|---|
