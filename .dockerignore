@@ -1,0 +1,19 @@
+# Dependencies and build output are produced inside the image.
+node_modules
+**/node_modules
+**/dist
+*.tsbuildinfo
+
+.git
+.github
+.gitignore
+
+# Never ship local secrets.
+.env
+.env.*
+!.env.example
+
+# Not needed at runtime.
+docs
+*.md
+coverage

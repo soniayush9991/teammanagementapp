@@ -23,5 +23,6 @@ something is deliberately left for later it says so.
 | 15 | [Analytics and reporting](15-analytics-and-reporting.md) | Metric definitions and exports |
 | 16 | [Roadmap](16-roadmap.md) | Milestones, sequencing, estimates |
 | 17 | [Future enhancements](17-future-enhancements.md) | What comes after v1 |
+| 18 | [Deployment](18-deployment.md) | Single-origin constraint, image, hosts, operations |
 
 Running the system is covered in the [root README](../README.md).

@@ -1,0 +1,45 @@
+# Runs the production image locally, exactly as a host would: one origin,
+# compiled output, no Vite. Use this to check a deployment before pushing it
+# anywhere.
+#
+#   docker compose up --build   →   http://localhost:3000
+#
+# Sign in as maya@teamspace.dev / TeamSpace!2026.
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: teamspace
+      POSTGRES_PASSWORD: teamspace
+      POSTGRES_DB: teamspace
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # The database name is explicit: pg_isready would otherwise default it to
+      # the username and log a FATAL line on every probe.
+      test: ['CMD-SHELL', 'pg_isready -U teamspace -d teamspace']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: '4000'
+      DATABASE_URL: postgres://teamspace:teamspace@db:5432/teamspace
+      # Local-only values. Generate real ones for anything reachable from the
+      # internet: openssl rand -hex 48
+      JWT_ACCESS_SECRET: local-compose-access-secret-not-for-real-use
+      JWT_REFRESH_SECRET: local-compose-refresh-secret-not-for-real-use
+      # Seeds the demo organization, but only into an empty database.
+      SEED_DEMO_ON_BOOT: 'true'
+    ports:
+      - '3000:4000'
+
+volumes:
+  pgdata:
