@@ -1,3 +1,5 @@
+// Must precede every other import (see loadDotenv).
+import '../loadDotenv.js';
 import { isoWeekKey, addDays } from '@teamspace/shared';
 import { closePool, withTransaction } from './pool.js';
 import { isMainModule } from '../lib/isMain.js';

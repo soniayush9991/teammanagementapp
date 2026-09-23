@@ -1,3 +1,5 @@
+// Must precede every other import (see loadDotenv).
+import '../loadDotenv.js';
 import { readdir, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';

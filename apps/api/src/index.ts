@@ -1,3 +1,6 @@
+// Must precede every other import: configuration is read during module
+// evaluation further down the graph.
+import './loadDotenv.js';
 import { createServer } from 'node:http';
 import { createApp } from './app.js';
 import { closePool, query } from './db/pool.js';

@@ -34,7 +34,7 @@ are optional — uploads and email degrade gracefully without them.
 git clone <this repository> && cd teammanagementapp
 npm install
 
-cp .env.example .env            # set DATABASE_URL and the two JWT secrets
+cp .env.example .env            # then set DATABASE_URL and the two JWT secrets
 createdb teamspace
 
 npm run db:migrate              # apply the schema
@@ -119,6 +119,11 @@ traps and restores focus. → `apps/web/src/components/ui.tsx`
 
 Everything is validated by zod at boot — a missing JWT secret is a startup
 failure, not a 500 at 3am. See [`.env.example`](.env.example) for the full set.
+
+A `.env` file in the repository root (or in `apps/api/`) is loaded
+automatically. Variables already set in the environment always win over the
+file, so a container, a CI job or an inline `DATABASE_URL=… npm run …` keeps
+its value. `.env` is gitignored — keep real secrets out of commits.
 
 | Variable | Purpose |
 |---|---|

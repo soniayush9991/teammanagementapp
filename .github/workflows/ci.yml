@@ -97,6 +97,30 @@ jobs:
           TEST_DATABASE_URL: postgres://teamspace:teamspace@localhost:5432/teamspace_test
         run: npm test
 
+      # Every other step runs from src via tsx, so a build that emits something
+      # unstartable passes unnoticed — which is exactly what happened: tsc does
+      # not copy the .sql migrations, and `node dist/index.js` died on boot.
+      - name: Built output boots and reports ready
+        env:
+          DATABASE_URL: postgres://teamspace:teamspace@localhost:5432/teamspace_boot
+          NODE_ENV: production
+          PORT: '4010'
+        run: |
+          PGPASSWORD=teamspace createdb -h localhost -U teamspace teamspace_boot
+          node apps/api/dist/index.js &
+          api_pid=$!
+          ready=0
+          for _ in $(seq 1 30); do
+            if curl -sf http://localhost:4010/readyz > /dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          kill "$api_pid" 2>/dev/null || true
+          if [ "$ready" != "1" ]; then
+            echo "::error::the built API never became ready on /readyz"
+            exit 1
+          fi
+          echo "built output booted, migrated and reported ready"
+
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest
