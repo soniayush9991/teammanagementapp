@@ -18,6 +18,7 @@ import { authRouter } from './modules/auth/auth.routes.js';
 import { capacityRouter } from './modules/capacity/capacity.routes.js';
 import { conversationsRouter } from './modules/conversations/conversations.routes.js';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes.js';
+import { mentorAdminRouter, mentorRouter } from './modules/mentorScoring/mentorScoring.routes.js';
 import { notificationsRouter } from './modules/notifications/notifications.routes.js';
 import { reportsRouter } from './modules/reports/reports.routes.js';
 import { searchRouter } from './modules/search/search.routes.js';
@@ -112,6 +113,9 @@ export function createApp(): Express {
   api.use('/notifications', notificationsRouter);
   api.use('/dashboard', dashboardRouter);
   api.use('/admin', adminRouter);
+  // Mounted after adminRouter on the same prefix: its paths (/scores, /flags, ...) do not overlap.
+  api.use('/admin', mentorAdminRouter);
+  api.use('/mentor', mentorRouter);
 
   // The authenticated identity of the caller, handy for debugging clients.
   api.get(

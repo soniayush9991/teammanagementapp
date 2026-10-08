@@ -56,6 +56,14 @@ export const PERMISSIONS = [
   'report:export',
 
   'notification:read_self',
+
+  'mentor_score:read_self',
+  'mentor_visit:submit',
+  'mentor_score:read_team',
+  'mentor_flag:review',
+  'mentor_score:configure',
+  'mentor_score:close_period',
+  'mentor_score:recalculate',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -79,6 +87,8 @@ const MEMBER_PERMISSIONS: Permission[] = [
   'message:delete_own',
   'report:read_self',
   'notification:read_self',
+  'mentor_score:read_self',
+  'mentor_visit:submit',
 ];
 
 const MANAGER_PERMISSIONS: Permission[] = [
@@ -95,6 +105,8 @@ const MANAGER_PERMISSIONS: Permission[] = [
   'conversation:create_channel',
   'report:read_team',
   'report:export',
+  'mentor_score:read_team',
+  'mentor_flag:review',
 ];
 
 /** Admins hold every permission; the matrix stays explicit for auditability. */

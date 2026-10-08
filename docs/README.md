@@ -24,5 +24,6 @@ something is deliberately left for later it says so.
 | 16 | [Roadmap](16-roadmap.md) | Milestones, sequencing, estimates |
 | 17 | [Future enhancements](17-future-enhancements.md) | What comes after v1 |
 | 18 | [Deployment](18-deployment.md) | Single-origin constraint, image, hosts, operations |
+| 19 | [Mentor scoring](19-mentor-scoring.md) | Report card engine, lifecycle, API, PRD deviations |
 
 Running the system is covered in the [root README](../README.md).

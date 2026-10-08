@@ -1,0 +1,95 @@
+# 19 · Mentor scoring
+
+Implements the *Mentor Scoring — Vendor-Ready PRD*: a fortnightly **Mentor Report Card**
+built from Compliance (coverage, duration, spot assessments) and Data Reliability
+(confirmed inflation and contradiction issues). Scope of this change: the scoring engine,
+schema, and REST API. The mentor and admin screens (M1–M7, A1–A7) are not built yet.
+
+## Where things live
+
+| Piece | Location |
+|---|---|
+| Pure scoring engine, defaults, validation, nudges, recognition | `packages/shared/src/mentorScoring.ts` |
+| Schema (migration 010) | `apps/api/src/db/migrations/010_mentor_scoring.sql` |
+| Evidence gathering, period close, recalculation | `apps/api/src/modules/mentorScoring/mentorScoring.calc.ts` |
+| Reads, flags, configuration, periods | `apps/api/src/modules/mentorScoring/mentorScoring.service.ts` |
+| Routes | `apps/api/src/modules/mentorScoring/mentorScoring.routes.ts` |
+| Tests | `packages/shared/test/mentorScoring.test.ts`, `apps/api/test/integration/mentorScoring.test.ts` |
+
+## How a score is made
+
+```
+overall     = 0.40 · compliance  + 0.60 · reliability
+compliance  = 0.60 · coverage    + 0.20 · duration  + 0.20 · spot
+reliability = 0.50 · inflation   + 0.50 · contradiction
+```
+
+All weights and thresholds are configuration, not constants (`MentorScoreConfig`).
+A metric with nothing to measure is *not applicable* and its weight is rescaled across the
+rest of its component. A mentor with no eligible visit, or no quality checks at all, gets
+**Insufficient data**, never a zero. Below the minimum evidence (default 5 visits and 20
+checks) the score is **Provisional**.
+
+Only **confirmed** flags reduce reliability. Flagged and dismissed records cost nothing.
+
+## Lifecycle
+
+1. Mentors submit visits (`POST /mentor/visits`, idempotent on a client-generated UUID).
+2. A rule engine or reviewer raises flags (`POST /admin/flags`).
+3. Reviewers decide flags (`POST /admin/flags/:id/decision`); every action is stored in
+   `audit_reviews` and `audit_logs`.
+4. `POST /admin/periods/:id/close` binds the period to the configuration version in force
+   at its start, scores every mentor, and snapshots benchmarks. Closed scores are rows,
+   not computations: editing configuration later cannot move them.
+5. Reports stay hidden from mentors (**shadow mode**) until `POST /admin/periods/:id/publish`.
+6. A flag confirmed after its period closed is applied under the configured policy:
+   `carryover` (default) adds it to the next period's close, once; either way an admin
+   can run an audited `POST /admin/recalculate`, which writes a new score version and a
+   `score_events` row and keeps the old version.
+
+## API
+
+| Endpoint | Who | Notes |
+|---|---|---|
+| `GET /mentor/report-card?period_id=` | mentor | Own data only; no mentor id parameter exists |
+| `GET /mentor/report-card/:periodId/evidence` | mentor | Visits and flags, plain-language reasons |
+| `GET /mentor/history` | mentor | Published periods with deltas |
+| `POST /mentor/visits` | mentor | `201` created, `200` replay |
+| `GET /admin/scores`, `GET /admin/scores/:mentorId` | manager (reporting line), admin | List + aggregates; drill-down |
+| `GET/POST /admin/flags`, `POST /admin/flags/:id/decision` | manager (reporting line), admin | Escalated flags: admin only; no self-review |
+| `GET /admin/config`, `POST /admin/config/preview`, `POST /admin/config/publish` | admin | Versions are immutable (trigger-enforced) |
+| `GET/POST /admin/periods`, `POST /admin/periods/:id/close`, `…/publish` | admin | |
+| `POST /admin/recalculate` | admin | Reason required |
+| `PUT /admin/mentors/:userId/profile`, `POST /admin/exclusions` | admin | Mentor setup; training/outage/closure days |
+
+Roles map onto the existing ones: member = mentor, manager = block/district reviewer and
+NP reviewer, admin = state program admin.
+
+## Decisions and deviations from the PRD
+
+* **Appendix A arithmetic.** The PRD prints compliance 86.20 and overall 91.28; its own
+  inputs give 86.46 and 91.38 (displayed 91 either way). The tests assert the corrected
+  values. Worth confirming with the program team.
+* **Preview is a `POST`.** The PRD lists `GET /admin/config/preview`; a candidate
+  configuration is a document, so it is sent in a body.
+* **Coverage when little is expected.** Expected visits are prorated fractions and used as
+  is; the PRD's `max(expected, 1)` guard is applied as "not applicable at zero".
+* **Benchmark cap.** Benchmarks are a median with one value per mentor, which bounds any
+  one mentor's influence; the separate 5% cap only matters for sum-based aggregates.
+* **Recognition** quality floor and "no open flag" apply to every category, not just the top one.
+* **Duplicates** are resolved among otherwise valid visits, so an abandoned attempt never
+  absorbs the real visit that follows it.
+
+## Not built yet (needs input or follows)
+
+* The mentor and admin UI, and Hindi/English message catalogues (the API returns nudge
+  codes, parameters and an English default).
+* **Visit source.** TeamSpace has no mentoring flow, so `mentoring_visits` is a minimal
+  intake table. When the real Shiksha MP visit tables are available, replace
+  `loadPeriodVisits` and keep the engine as is.
+* **Quality rules** (inflation/contradiction detection) are undefined in the PRD (§17.1);
+  flags are created through the API, and `inflation_checks`/`consistency_checks` per visit
+  are supplied by whatever evaluates them.
+* Mid-period **transfer and role-change** segmentation, in-app notifications, and the
+  pilot KPI dashboard/export (§15, §19.8).
+* Visit edits after submission: a recalculation picks them up, but there is no edit endpoint.
