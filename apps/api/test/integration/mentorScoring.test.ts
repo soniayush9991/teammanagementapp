@@ -335,8 +335,10 @@ describe('mentor scoring', { skip: canRunIntegrationTests ? false : 'TEST_DATABA
     });
     assert.equal(v2.body.version, 2);
 
-    const past = await api<ReportCard>(context, 'GET', `/mentor/report-card?period_id=${period1}`, { token: sam });
+    const past = await api<ReportCard & { trend: unknown[] }>(context, 'GET', `/mentor/report-card?period_id=${period1}`, { token: sam });
     assert.equal(past.body.overall, 94);
+    // An older card's trend ends at that card's own period.
+    assert.equal(past.body.trend.length, 1);
 
     const p2 = await api<{ id: string }>(context, 'POST', '/admin/periods', { token: admin, body: { startDate: '2026-01-19' } });
     period2 = p2.body.id;

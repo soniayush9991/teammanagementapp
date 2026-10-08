@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { useReportCard } from '../api/mentor';
 import { useAuth } from '../state/AuthContext';
 import { Avatar, Button } from './ui';
 import { GlobalSearch } from './GlobalSearch';
@@ -28,6 +29,8 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
   });
 
   const firstTeamId = teams?.[0]?.id;
+  // Same query as the home-screen card, so this costs no extra request.
+  const { data: reportCard } = useReportCard();
 
   return (
     <div className="shell">
@@ -76,6 +79,15 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
           <NavItem to="/groups" icon="◍">
             Groups
           </NavItem>
+
+          {reportCard && (
+            <>
+              <p className="sidebar__section">Mentoring</p>
+              <NavItem to="/mentor" icon="◐">
+                Report card
+              </NavItem>
+            </>
+          )}
 
           {can('report:read_team') && (
             <>

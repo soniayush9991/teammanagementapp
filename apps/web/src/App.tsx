@@ -17,6 +17,7 @@ import { ChatPage } from './pages/ChatPage';
 import { GroupsPage } from './pages/GroupsPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { AdminPage } from './pages/AdminPage';
+import { MentorRoutes } from './pages/mentor';
 
 export function App(): JSX.Element {
   const { status } = useAuth();
@@ -74,6 +75,14 @@ export function App(): JSX.Element {
                     element={
                       <RequirePermission permission="report:read_team">
                         <ReportsPage />
+                      </RequirePermission>
+                    }
+                  />
+                  <Route
+                    path="/mentor/*"
+                    element={
+                      <RequirePermission permission="mentor_score:read_self">
+                        <MentorRoutes />
                       </RequirePermission>
                     }
                   />

@@ -162,7 +162,13 @@ interface HistoryRow {
   version: number;
 }
 
-async function loadHistory(mentorId: string, orgId: string, visibleOnly: boolean, limit: number): Promise<HistoryRow[]> {
+async function loadHistory(
+  mentorId: string,
+  orgId: string,
+  visibleOnly: boolean,
+  limit: number,
+  upToStart: string | null = null,
+): Promise<HistoryRow[]> {
   return queryRows<HistoryRow>(
     `
     SELECT p.id AS period_id, ${DATE('p.start_date')} AS start_date, ${DATE('p.end_date')} AS end_date,
@@ -172,10 +178,11 @@ async function loadHistory(mentorId: string, orgId: string, visibleOnly: boolean
     JOIN scoring_periods p ON p.id = s.period_id
     WHERE s.mentor_id = $1 AND s.org_id = $2 AND s.is_current AND p.status = 'closed'
       AND ($3::boolean = FALSE OR p.published_at IS NOT NULL)
+      AND ($5::date IS NULL OR p.start_date <= $5::date)
     ORDER BY p.start_date DESC
     LIMIT $4
     `,
-    [mentorId, orgId, visibleOnly, limit],
+    [mentorId, orgId, visibleOnly, limit, upToStart],
   );
 }
 
@@ -241,7 +248,8 @@ export async function presentReportCard(
 ) {
   const metrics = await loadMetrics(score.id);
   const result = resultFromStored(score, metrics);
-  const history = await loadHistory(mentorId, orgId, visibleOnly, 4);
+  // Trend and "previous period" are relative to the card being shown, not to today.
+  const history = await loadHistory(mentorId, orgId, visibleOnly, 4, period.start_date);
   const trend = withDeltas(history);
   const index = history.findIndex((row) => row.period_id === period.id);
   const previous = index >= 0 ? history[index + 1] : undefined;
@@ -301,6 +309,10 @@ interface VisitEvidenceRow {
   started_at: Date;
   ended_at: Date;
   completed: boolean;
+  spot_applicable: number;
+  spot_completed: number;
+  inflation_checks: number;
+  consistency_checks: number;
 }
 
 /** M3-M5: the visits and flags behind a report card, described at a high level. */
@@ -330,7 +342,8 @@ export async function buildEvidence(orgId: string, mentorId: string, period: Per
   });
 
   const visits = await queryRows<VisitEvidenceRow>(
-    `SELECT id, school_id, started_at, ended_at, completed FROM mentoring_visits WHERE id = ANY($1::uuid[]) ORDER BY started_at`,
+    `SELECT id, school_id, started_at, ended_at, completed, spot_applicable, spot_completed, inflation_checks, consistency_checks
+     FROM mentoring_visits WHERE id = ANY($1::uuid[]) ORDER BY started_at`,
     [evaluated?.visitIds ?? []],
   );
   const assessments = new Map((evaluated?.assessed.assessments ?? []).map((entry) => [entry.visitId, entry]));
@@ -380,6 +393,10 @@ export async function buildEvidence(orgId: string, mentorId: string, period: Per
         counted: assessment?.eligible ?? false,
         durationMinutes: assessment?.durationMinutes ?? null,
         durationValid: assessment?.durationValid ?? false,
+        spotApplicable: visit.spot_applicable,
+        spotCompleted: Math.min(visit.spot_completed, visit.spot_applicable),
+        inflationChecks: visit.inflation_checks,
+        consistencyChecks: visit.consistency_checks,
         reasons: (assessment?.reasons ?? ['duplicate']).map((reason) => (adminView ? reason : REASON_LABELS[reason] ?? reason)),
       };
     }),

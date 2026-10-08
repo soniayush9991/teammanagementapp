@@ -2,8 +2,8 @@
 
 Implements the *Mentor Scoring — Vendor-Ready PRD*: a fortnightly **Mentor Report Card**
 built from Compliance (coverage, duration, spot assessments) and Data Reliability
-(confirmed inflation and contradiction issues). Scope of this change: the scoring engine,
-schema, and REST API. The mentor and admin screens (M1–M7, A1–A7) are not built yet.
+(confirmed inflation and contradiction issues). Built so far: the scoring engine, schema and REST API, and the mentor screens M1–M7
+(`apps/web/src/pages/mentor/`). The admin screens (A1–A7) are not built yet.
 
 ## Where things live
 
@@ -80,10 +80,26 @@ NP reviewer, admin = state program admin.
 * **Duplicates** are resolved among otherwise valid visits, so an abandoned attempt never
   absorbs the real visit that follows it.
 
+## Mentor screens (web)
+
+| Screen | Route | File |
+|---|---|---|
+| M1 entry card (home) + nav link | `/` , sidebar | `components/mentor/ReportCardEntry.tsx` |
+| M2 overall report card | `/mentor`, `/mentor/:periodId` | `pages/mentor/ReportCardPage.tsx` |
+| M3 compliance detail | `/mentor/:periodId/compliance` | `ComplianceDetailPage.tsx` |
+| M4 data reliability detail | `/mentor/:periodId/reliability` | `ReliabilityDetailPage.tsx` |
+| M5 flags / review status | `/mentor/:periodId/records` | `FlagsPage.tsx` |
+| M6 score history | `/mentor/history` | `HistoryPage.tsx` |
+| M7 suggestions | `/mentor/:periodId/feedback` | `FeedbackPage.tsx` |
+
+The entry card and nav link render nothing until a published card exists, so non-mentors
+never see them. Status and change are always a glyph plus words, and a drop in score is
+neutral grey, not red. All wording is in `components/mentor/format.ts`, ready to translate.
+
 ## Not built yet (needs input or follows)
 
-* The mentor and admin UI, and Hindi/English message catalogues (the API returns nudge
-  codes, parameters and an English default).
+* The admin UI (A1–A7), and Hindi message catalogues (the screens' wording is centralised,
+  and the API returns nudge codes, parameters and an English default).
 * **Visit source.** TeamSpace has no mentoring flow, so `mentoring_visits` is a minimal
   intake table. When the real Shiksha MP visit tables are available, replace
   `loadPeriodVisits` and keep the engine as is.

@@ -17,6 +17,7 @@ import {
   formatPercent,
   formatRelativeTime,
 } from '../components/ui';
+import { ReportCardEntry } from '../components/mentor/ReportCardEntry';
 import { useAuth } from '../state/AuthContext';
 
 /** The team member's home: what is due, how full the week is, what is unread. */
@@ -40,7 +41,9 @@ export function MyWorkPage(): JSX.Element {
         subtitle={`Week ${data.weekKey} · ${data.todayTasks.length} task(s) in focus today`}
       />
 
-      <div className="grid grid--metrics" style={{ marginBottom: 'var(--space-5)' }}>
+      <ReportCardEntry />
+
+      <div className="grid grid--metrics" style={{ margin: 'var(--space-5) 0' }}>
         <Metric
           label="This week's load"
           value={formatHours(capacity.plannedHours)}
