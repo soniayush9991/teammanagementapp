@@ -33,7 +33,7 @@ import {
  * Admins see everyone; managers their reporting line; nobody else gets here
  * (the route guard has already required a team-level permission).
  */
-function mentorScope(actor: AuthenticatedActor, column: string, params: unknown[]): string {
+export function mentorScope(actor: AuthenticatedActor, column: string, params: unknown[]): string {
   if (actor.role === 'admin') return 'TRUE';
   params.push(actor.id);
   const slot = `$${params.length}`;
@@ -46,7 +46,7 @@ function mentorScope(actor: AuthenticatedActor, column: string, params: unknown[
   )`;
 }
 
-async function assertMentorInScope(actor: AuthenticatedActor, mentorId: string): Promise<void> {
+export async function assertMentorInScope(actor: AuthenticatedActor, mentorId: string): Promise<void> {
   const params: unknown[] = [mentorId, actor.orgId];
   const scope = mentorScope(actor, 'p.user_id', params);
   const row = await queryOne(
@@ -443,7 +443,7 @@ async function latestClosedPeriod(orgId: string): Promise<PeriodRow> {
   return period;
 }
 
-async function periodForAdmin(orgId: string, periodId: string | undefined): Promise<PeriodRow> {
+export async function periodForAdmin(orgId: string, periodId: string | undefined): Promise<PeriodRow> {
   if (!periodId) return latestClosedPeriod(orgId);
   const period = await queryOne<PeriodRow>(
     `SELECT ${PERIOD_COLUMNS} FROM scoring_periods WHERE id = $1 AND org_id = $2`,
@@ -460,6 +460,21 @@ function quantile(sorted: number[], q: number): number | null {
   const upper = Math.ceil(position);
   const value = (sorted[lower] as number) + ((sorted[upper] as number) - (sorted[lower] as number)) * (position - lower);
   return Math.round(value * 100) / 100;
+}
+
+const HISTOGRAM_BINS: [string, number, number][] = [
+  ['Under 60', 0, 60],
+  ['60–69', 60, 70],
+  ['70–79', 70, 80],
+  ['80–89', 80, 90],
+  ['90–100', 90, 101],
+];
+
+export function histogram(values: number[]) {
+  return HISTOGRAM_BINS.map(([label, low, high]) => ({
+    label,
+    count: values.filter((value) => value >= low && value < high).length,
+  }));
 }
 
 export function distribution(values: number[]) {
@@ -554,6 +569,7 @@ export async function listScores(actor: AuthenticatedActor, filter: ScoreFilter)
       validVisitCoverage: expected > 0 ? Math.round((sum((e) => Math.min(e.eligibleVisits, e.expectedVisits)) / expected) * 1000) / 10 : null,
       confirmedIntegrityIssueRate: checks > 0 ? Math.round((confirmedIssues / checks) * 10000) / 100 : null,
       distribution: distribution(scored.map((row) => row.overall as number)),
+      histogram: histogram(scored.map((row) => row.overall as number)),
       compliance: distribution(rows.filter((row) => row.compliance !== null).map((row) => row.compliance as number)),
       reliability: distribution(rows.filter((row) => row.reliability !== null).map((row) => row.reliability as number)),
     },
@@ -892,6 +908,8 @@ export interface FlagFilter {
   block?: string;
   mentorId?: string;
   kind?: string;
+  ruleCode?: string;
+  minAgeDays?: number;
   periodId?: string;
   limit: number;
   offset: number;
@@ -909,6 +927,8 @@ export async function listFlags(actor: AuthenticatedActor, filter: FlagFilter) {
   if (filter.block) add('mp.block = ?', filter.block);
   if (filter.mentorId) add('f.mentor_id = ?', filter.mentorId);
   if (filter.kind) add('f.kind = ?::flag_kind', filter.kind);
+  if (filter.ruleCode) add('f.rule_code = ?', filter.ruleCode);
+  if (filter.minAgeDays !== undefined) add("f.created_at <= now() - (? * INTERVAL '1 day')", filter.minAgeDays);
   if (filter.periodId) {
     params.push(filter.periodId);
     where.push(`(v.started_at AT TIME ZONE o.timezone)::date BETWEEN

@@ -80,12 +80,19 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
             Groups
           </NavItem>
 
-          {reportCard && (
+          {(reportCard || can('mentor_score:read_team')) && (
             <>
               <p className="sidebar__section">Mentoring</p>
-              <NavItem to="/mentor" icon="◐">
-                Report card
-              </NavItem>
+              {reportCard && (
+                <NavItem to="/mentor" icon="◐">
+                  Report card
+                </NavItem>
+              )}
+              {can('mentor_score:read_team') && (
+                <NavItem to="/mentor-admin" icon="◑">
+                  Mentor scoring
+                </NavItem>
+              )}
             </>
           )}
 

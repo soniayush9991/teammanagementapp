@@ -2,8 +2,9 @@
 
 Implements the *Mentor Scoring — Vendor-Ready PRD*: a fortnightly **Mentor Report Card**
 built from Compliance (coverage, duration, spot assessments) and Data Reliability
-(confirmed inflation and contradiction issues). Built so far: the scoring engine, schema and REST API, and the mentor screens M1–M7
-(`apps/web/src/pages/mentor/`). The admin screens (A1–A7) are not built yet.
+(confirmed inflation and contradiction issues). Built so far: the scoring engine, schema and REST API, the mentor screens M1–M7
+(`apps/web/src/pages/mentor/`) and the reviewer/admin screens A1–A7
+(`apps/web/src/pages/mentorAdmin/`).
 
 ## Where things live
 
@@ -96,9 +97,32 @@ The entry card and nav link render nothing until a published card exists, so non
 never see them. Status and change are always a glyph plus words, and a drop in score is
 neutral grey, not red. All wording is in `components/mentor/format.ts`, ready to translate.
 
+## Reviewer and admin screens (web)
+
+All under `/mentor-admin`, shown to managers (their reporting line) and admins. Filters live in
+the URL, so a view can be linked.
+
+| Screen | Route | Notes |
+|---|---|---|
+| A1 overview | `/mentor-admin` | Summary cards, score histogram with quartiles, 6-period trend (compliance and reliability as separate charts), inflation/contradiction confirmed vs flagged |
+| A2 mentor list | `/mentor-admin/mentors` | Sortable; links to the report card and audit history |
+| A3 drill-down | `/mentor-admin/mentors/:id` | Drivers with numerator/denominator/rule version, visits, flags, reviews, score events; recalculation (admin); CSV export |
+| A4 flag queue | `/mentor-admin/flags` | Filters incl. rule and age; evidence pane; start review / confirm / dismiss / escalate / note with reason codes |
+| A5 configuration | `/mentor-admin/config` (admin) | Weights, thresholds, role targets, effective date, preview, publish, version history, and period close/publish |
+| A6 benchmarks | `/mentor-admin/benchmarks` | Frozen snapshots with cohort, window, statistic, cap method; members visible to admins only |
+| A7 recognition | `/mentor-admin/recognition` | Positive categories only; ineligible mentors are counted, never named |
+
+Added for these screens: `GET /admin/trend`, `/admin/mentor-filters`, `/admin/flags/:id`,
+`/admin/benchmarks`, `/admin/recognition`, `/admin/config/versions`, and `rule_code` /
+`min_age_days` flag filters.
+
+Behaviour worth knowing: in A1, flagged/confirmed/dismissed counts belong to the period of the
+*visit*, while the rate is what was applied to scores in that period, so a late confirmation
+shows in the visit's period as an issue and in the next period's rate.
+
 ## Not built yet (needs input or follows)
 
-* The admin UI (A1–A7), and Hindi message catalogues (the screens' wording is centralised,
+* Hindi message catalogues (the screens' wording is centralised,
   and the API returns nudge codes, parameters and an English default).
 * **Visit source.** TeamSpace has no mentoring flow, so `mentoring_visits` is a minimal
   intake table. When the real Shiksha MP visit tables are available, replace
@@ -106,6 +130,8 @@ neutral grey, not red. All wording is in `components/mentor/format.ts`, ready to
 * **Quality rules** (inflation/contradiction detection) are undefined in the PRD (§17.1);
   flags are created through the API, and `inflation_checks`/`consistency_checks` per visit
   are supplied by whatever evaluates them.
+* Recognition **announcements** (opt-in channels), A7 only identifies winners. Many mentors can
+  tie at 100 on reliability, in which case every tied mentor is listed.
 * Mid-period **transfer and role-change** segmentation, in-app notifications, and the
   pilot KPI dashboard/export (§15, §19.8).
 * Visit edits after submission: a recalculation picks them up, but there is no edit endpoint.

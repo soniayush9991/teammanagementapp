@@ -5,6 +5,7 @@ import { asyncHandler, parseBody, parseQuery, uuid } from '../../lib/http.js';
 import { actorOf, authenticate, requirePermission } from '../../middleware/auth.js';
 import { writeRateLimit } from '../../middleware/rateLimit.js';
 import { closePeriod, recalculateMentor } from './mentorScoring.calc.js';
+import * as admin from './mentorScoring.admin.js';
 import * as service from './mentorScoring.service.js';
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD');
@@ -122,12 +123,81 @@ mentorAdminRouter.get(
         block: z.string().max(120).optional(),
         mentor_id: uuid.optional(),
         kind: z.enum(['inflation', 'contradiction']).optional(),
+        rule_code: z.string().max(80).optional(),
+        min_age_days: z.coerce.number().min(0).max(3650).optional(),
         period_id: uuid.optional(),
         ...pagination,
       }),
       req.query,
     );
-    res.json(await service.listFlags(actorOf(req), { ...filter, mentorId: filter.mentor_id, periodId: filter.period_id }));
+    res.json(
+      await service.listFlags(actorOf(req), {
+        ...filter,
+        mentorId: filter.mentor_id,
+        periodId: filter.period_id,
+        ruleCode: filter.rule_code,
+        minAgeDays: filter.min_age_days,
+      }),
+    );
+  }),
+);
+
+mentorAdminRouter.get(
+  '/flags/:id',
+  requirePermission('mentor_flag:review'),
+  asyncHandler(async (req, res) => {
+    res.json(await admin.getFlagDetail(actorOf(req), uuid.parse(req.params.id)));
+  }),
+);
+
+mentorAdminRouter.get(
+  '/mentor-filters',
+  requirePermission('mentor_score:read_team'),
+  asyncHandler(async (req, res) => {
+    res.json(await admin.getFilterOptions(actorOf(req)));
+  }),
+);
+
+mentorAdminRouter.get(
+  '/trend',
+  requirePermission('mentor_score:read_team'),
+  asyncHandler(async (req, res) => {
+    const { periods, ...filter } = parseQuery(
+      z.object({
+        periods: z.coerce.number().int().min(1).max(12).default(6),
+        district: z.string().max(120).optional(),
+        block: z.string().max(120).optional(),
+        role: z.string().max(60).optional(),
+      }),
+      req.query,
+    );
+    res.json(await admin.getOverviewTrend(actorOf(req), periods, filter));
+  }),
+);
+
+mentorAdminRouter.get(
+  '/benchmarks',
+  requirePermission('mentor_score:read_team'),
+  asyncHandler(async (req, res) => {
+    const { period_id } = parseQuery(z.object({ period_id: uuid.optional() }), req.query);
+    res.json(await admin.listBenchmarks(actorOf(req), period_id));
+  }),
+);
+
+mentorAdminRouter.get(
+  '/recognition',
+  requirePermission('mentor_score:read_team'),
+  asyncHandler(async (req, res) => {
+    const { period_id } = parseQuery(z.object({ period_id: uuid.optional() }), req.query);
+    res.json(await admin.getRecognition(actorOf(req), period_id));
+  }),
+);
+
+mentorAdminRouter.get(
+  '/config/versions',
+  requirePermission('mentor_score:configure'),
+  asyncHandler(async (req, res) => {
+    res.json(await admin.listConfigVersions(actorOf(req)));
   }),
 );
 

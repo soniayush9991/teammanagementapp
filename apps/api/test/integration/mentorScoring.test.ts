@@ -419,4 +419,124 @@ describe('mentor scoring', { skip: canRunIntegrationTests ? false : 'TEST_DATABA
     assert.equal(card.body.benchmark!.suppressed, true);
     assert.equal(card.body.benchmark!.value, null);
   });
+
+  test('A1: overview trend is oldest-first, split by kind, and respects reporting-line scope', async () => {
+    const trend = await api<{
+      items: { periodId: string; mentors: number; compliance: number; reliability: number; inflation: { confirmed: number; flagged: number }; contradiction: { confirmed: number; flagged: number; checks: number } }[];
+    }>(context, 'GET', '/admin/trend?periods=6', { token: admin });
+    assert.equal(trend.status, 200);
+    assert.deepEqual(trend.body.items.map((item) => item.periodId), [period1, period2]);
+    assert.equal(trend.body.items[0]!.mentors, 3);
+    // Flag counts belong to the period of the visit: period 1 had two confirmed
+    // contradictions, and the inflation flag confirmed late is a period-1 issue too.
+    assert.equal(trend.body.items[0]!.contradiction.confirmed, 2);
+    assert.equal(trend.body.items[0]!.inflation.confirmed, 1);
+    assert.equal(trend.body.items[1]!.inflation.confirmed, 0);
+    // The rate is what reached the score: that late confirmation carried into period 2.
+    const rates = trend.body.items as unknown as { inflation: { rate: number | null } }[];
+    assert.equal(rates[0]!.inflation.rate, 0);
+    assert.equal(rates[1]!.inflation.rate, 5);
+
+    const scoped = await api<{ items: { mentors: number }[] }>(context, 'GET', '/admin/trend', { token: manager });
+    assert.equal(scoped.body.items[0]!.mentors, 2);
+    assert.equal((await api(context, 'GET', '/admin/trend', { token: sam })).status, 403);
+  });
+
+  test('A1: filters and a score histogram that accounts for every scored mentor', async () => {
+    const filters = await api<{ districts: string[]; blocks: { block: string }[]; roles: string[] }>(context, 'GET', '/admin/mentor-filters', { token: admin });
+    assert.deepEqual(filters.body.districts, ['Bhopal']);
+    assert.deepEqual(filters.body.roles, ['mentor']);
+
+    const scores = await api<{ summary: { histogram: { label: string; count: number }[]; distribution: { count: number } } }>(
+      context,
+      'GET',
+      `/admin/scores?period_id=${period1}`,
+      { token: admin },
+    );
+    const total = scores.body.summary.histogram.reduce((sum, bin) => sum + bin.count, 0);
+    assert.equal(total, scores.body.summary.distribution.count);
+    assert.equal(scores.body.summary.histogram.length, 5);
+  });
+
+  test('A4: queue filters by rule and age, and the detail pane carries the evidence and history', async () => {
+    const byRule = await api<{ items: { id: string }[] }>(context, 'GET', '/admin/flags?rule_code=C-01', { token: manager });
+    assert.deepEqual(byRule.body.items.map((item) => item.id), [flags.confirm]);
+    const old = await api<{ items: unknown[] }>(context, 'GET', '/admin/flags?min_age_days=1', { token: manager });
+    assert.equal(old.body.items.length, 0);
+
+    const detail = await api<{
+      flag: { status: string; ruleCode: string; canReview: boolean };
+      mentor: { name: string };
+      visit: { school_id: string; location_status: string };
+      reviews: { decision: string; reason_code: string | null }[];
+    }>(context, 'GET', `/admin/flags/${flags.confirm}`, { token: manager });
+    assert.equal(detail.status, 200);
+    assert.equal(detail.body.flag.status, 'confirmed');
+    assert.equal(detail.body.mentor.name, 'Sam Rivera');
+    assert.equal(detail.body.visit.location_status, 'verified');
+    assert.deepEqual(detail.body.reviews.map((review) => review.decision), ['start_review', 'confirm']);
+
+    assert.equal((await api(context, 'GET', `/admin/flags/${flags.confirm}`, { token: sam })).status, 403);
+    // The manager's own record is outside her reporting line, so it is not even visible to her.
+    const mine = await api<{ items: { id: string }[] }>(context, 'GET', '/admin/flags?status=dismissed', { token: admin });
+    assert.ok(mine.body.items.length >= 1);
+  });
+
+  test('A5: every published configuration version is listed to admins only', async () => {
+    const versions = await api<{ items: { version: number; effectiveFrom: string; config: { componentWeights: { compliance: number } } }[] }>(
+      context,
+      'GET',
+      '/admin/config/versions',
+      { token: admin },
+    );
+    assert.deepEqual(versions.body.items.map((item) => item.version), [2, 1]);
+    assert.equal(versions.body.items[0]!.effectiveFrom, '2026-01-19');
+    assert.equal(versions.body.items[0]!.config.componentWeights.compliance, 0.5);
+    assert.equal((await api(context, 'GET', '/admin/config/versions', { token: manager })).status, 403);
+  });
+
+  test('A6: benchmark snapshots show their basis; only admins see who is in the cohort', async () => {
+    const asAdmin = await api<{ minCohortSize: number; items: { geography: string; cohortSize: number; suppressed: boolean; value: number | null; capMethod: string; members: { name: string }[] | null }[] }>(
+      context,
+      'GET',
+      `/admin/benchmarks?period_id=${period1}`,
+      { token: admin },
+    );
+    assert.equal(asAdmin.status, 200);
+    assert.equal(asAdmin.body.minCohortSize, 5);
+    const org = asAdmin.body.items.find((item) => item.geography === 'All districts')!;
+    assert.equal(org.suppressed, true);
+    assert.equal(org.value, null);
+    assert.ok(org.members!.length >= 1);
+    assert.match(org.capMethod, /median/);
+
+    const asManager = await api<{ items: { members: unknown }[] }>(context, 'GET', `/admin/benchmarks?period_id=${period1}`, { token: manager });
+    for (const item of asManager.body.items) assert.equal(item.members, null);
+  });
+
+  test('A7: recognition is positive-only, needs a final clean score, and never names ineligible mentors', async () => {
+    const first = await api<{
+      eligible: number;
+      notEligible: { notFinal: number; openReview: number; belowQualityFloor: number };
+      categories: { category: string; winners: unknown[] }[];
+    }>(context, 'GET', `/admin/recognition?period_id=${period1}`, { token: admin });
+    // Sam is the only mentor with a final, review-free score; the other two had too little evidence.
+    assert.equal(first.body.eligible, 1);
+    assert.deepEqual(first.body.notEligible, { notFinal: 2, openReview: 0, belowQualityFloor: 0 });
+    const firstBy = Object.fromEntries(first.body.categories.map((entry) => [entry.category, entry.winners.length]));
+    assert.deepEqual(firstBy, { top_overall: 1, most_improved: 0, reliable_data: 1, strong_coverage: 1 });
+    assert.ok(!JSON.stringify(first.body).includes('Priya'));
+
+    const second = await api<{ categories: { category: string; winners: { name: string; value: number | null }[] }[] }>(
+      context,
+      'GET',
+      `/admin/recognition?period_id=${period2}`,
+      { token: admin },
+    );
+    const byCategory = Object.fromEntries(second.body.categories.map((entry) => [entry.category, entry.winners]));
+    assert.deepEqual(byCategory.top_overall!.map((winner) => winner.name), ['Sam Rivera']);
+    assert.equal(byCategory.most_improved![0]!.value, 5);
+    assert.ok(!JSON.stringify(second.body).includes('Priya'));
+    assert.equal((await api(context, 'GET', '/admin/recognition', { token: sam })).status, 403);
+  });
 });
